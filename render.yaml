@@ -1,0 +1,18 @@
+services:
+  # NE-SHIELD Backend & Operational GIS Command Center
+  - type: web
+    name: ne-shield-backend
+    runtime: python
+    buildCommand: "pip install --no-cache-dir -r backend/requirements.txt"
+    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    plan: free
+    region: oregon
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: OPERATIONAL_MODE
+        value: LIVE
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"

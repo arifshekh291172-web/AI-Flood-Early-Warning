@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NE-SHIELD | AI Landslide Early Warning & Real-Time Disaster Monitoring</title>
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet GIS CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            command: {
+              bg: '#070d1e',
+              card: '#101c40',
+              border: '#1e3a8a',
+              cyan: '#00f2fe',
+              teal: '#4facfe',
+              amber: '#ffb703',
+              orange: '#fb8500',
+              crimson: '#e63946',
+              emerald: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="bg-[#070d1e] text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- ================= TOP COMMAND HEADER ================= -->
+  <header class="border-b border-cyan-900/40 bg-[#091126]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+      
+      <!-- Brand & Mode -->
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="shield-alert" class="w-6 h-6 text-black"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-wider bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">NE-SHIELD</span>
+            <span class="text-xs px-2 py-0.5 rounded font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/80">NER-HQ</span>
+            
+            <!-- Live vs Demo Mode Toggle -->
+            <button id="mode-toggle-btn" onclick="toggleOperationalMode()" class="flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-600/60 hover:bg-emerald-900 transition">
+              <span id="mode-pulse" class="live-pulse"></span>
+              <span id="mode-label">LIVE MODE</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-tight">North Eastern Region Real-Time Landslide Early Warning System</p>
+        </div>
+      </div>
+
+      <!-- Live Telemetry Status & Clocks -->
+      <div class="hidden lg:flex items-center gap-6">
+        <!-- WebSocket State -->
+        <div class="flex items-center gap-2 px-3 py-1 rounded bg-slate-900/80 border border-slate-800 text-xs">
+          <span id="ws-indicator" class="live-pulse"></span>
+          <span id="ws-status" class="text-slate-300 font-mono">LIVE TELEMETRY</span>
+        </div>
+
+        <!-- Clock IST -->
+        <div class="flex items-center gap-2 px-3 py-1 rounded bg-slate-900/80 border border-slate-800 text-xs font-mono">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span id="live-ist-clock" class="text-cyan-300">--:--:-- IST</span>
+        </div>
+
+        <!-- Active Model Tag -->
+        <div class="flex items-center gap-2 px-3 py-1 rounded bg-slate-900/80 border border-slate-800 text-xs font-mono">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span class="text-slate-400">Model:</span>
+          <span id="active-model-tag" class="text-indigo-300">Loading...</span>
+        </div>
+      </div>
+
+      <!-- Persona / Role Selector & Actions -->
+      <div class="flex items-center gap-3">
+        <select id="persona-selector" onchange="switchPersona(this.value)" class="text-xs bg-slate-900 border border-cyan-800/60 rounded px-2.5 py-1.5 text-cyan-300 focus:outline-none focus:border-cyan-400 font-mono">
+          <option value="admin">Admin (Dr. Pranjal Saikia)</option>
+          <option value="authority">District Authority (Kabir Sharma)</option>
+          <option value="officer">Field Officer (Tenzing Norbu)</option>
+          <option value="analyst">Analyst (Dr. Ananya Roy)</option>
+          <option value="citizen">Citizen (Romen Singha)</option>
+        </select>
+
+        <button onclick="refreshAllData()" class="p-2 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 hover:border-cyan-500 transition" title="Refresh Live Feeds">
+          <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 flex overflow-x-auto border-t border-slate-800/80 scrollbar-none">
+      <button class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Command Summary
+      </button>
+      <button class="nav-tab" data-tab="live-map" onclick="switchTab('live-map')">
+        <i data-lucide="map" class="w-4 h-4"></i> Operational GIS Map
+      </button>
+      <button class="nav-tab" data-tab="risk-analysis" onclick="switchTab('risk-analysis')">
+        <i data-lucide="activity" class="w-4 h-4"></i> AI Risk Predictions
+      </button>
+      <button class="nav-tab" data-tab="weather" onclick="switchTab('weather')">
+        <i data-lucide="cloud-sun" class="w-4 h-4"></i> IMD Weather
+      </button>
+      <button class="nav-tab" data-tab="rainfall" onclick="switchTab('rainfall')">
+        <i data-lucide="cloud-rain" class="w-4 h-4"></i> Rainfall Analytics
+      </button>
+      <button class="nav-tab" data-tab="alerts" onclick="switchTab('alerts')">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Official Warnings
+      </button>
+      <button class="nav-tab" data-tab="reports" onclick="switchTab('reports')">
+        <i data-lucide="flag" class="w-4 h-4"></i> Citizen Reports
+      </button>
+      <button class="nav-tab" data-tab="field" onclick="switchTab('field')">
+        <i data-lucide="shield" class="w-4 h-4"></i> Field Operations
+      </button>
+      <button class="nav-tab" data-tab="roads" onclick="switchTab('roads')">
+        <i data-lucide="git-commit" class="w-4 h-4"></i> Road Connectivity
+      </button>
+      <button class="nav-tab" data-tab="ml-model" onclick="switchTab('ml-model')">
+        <i data-lucide="brain-circuit" class="w-4 h-4"></i> ML Governance
+      </button>
+      <button class="nav-tab" data-tab="data-sources" onclick="switchTab('data-sources')">
+        <i data-lucide="database" class="w-4 h-4"></i> Data Provenance
+      </button>
+      <button class="nav-tab" data-tab="audit-logs" onclick="switchTab('audit-logs')">
+        <i data-lucide="file-text" class="w-4 h-4"></i> Audit Trail
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= SUB-HEADER FILTER BAR ================= -->
+  <div class="bg-[#0b142e] border-b border-slate-800/80 px-4 sm:px-6 py-2">
+    <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+      
+      <!-- State & District Filters -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-slate-400">
+          <i data-lucide="filter" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Region Filter:</span>
+        </div>
+
+        <select id="state-filter" onchange="onStateFilterChange(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200">
+          <option value="">All 8 North Eastern States</option>
+          <option value="AS">Assam</option>
+          <option value="AR">Arunachal Pradesh</option>
+          <option value="MN">Manipur</option>
+          <option value="ML">Meghalaya</option>
+          <option value="MZ">Mizoram</option>
+          <option value="NL">Nagaland</option>
+          <option value="SK">Sikkim</option>
+          <option value="TR">Tripura</option>
+        </select>
+
+        <select id="risk-filter" onchange="onRiskFilterChange(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200">
+          <option value="">All Risk Classes</option>
+          <option value="CRITICAL">Critical Risk Only</option>
+          <option value="HIGH">High Risk Only</option>
+          <option value="MODERATE">Moderate Risk</option>
+          <option value="LOW">Low Risk</option>
+        </select>
+      </div>
+
+      <!-- Real-time Disclaimers -->
+      <div class="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>IMD Station Data: <strong class="text-slate-200">Synced</strong></span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span>Bhuvan LEWS: <strong class="text-slate-200">Active</strong></span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          <span>NDMA/SACHET: <strong class="text-slate-200">Monitored</strong></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MAIN APP VIEW CONTAINER ================= -->
+  <main class="max-w-[1920px] mx-auto p-4 sm:p-6">
+    
+    <!-- Tab 1: Dashboard Summary -->
+    <div id="view-dashboard" class="tab-view block space-y-6">
+      
+      <!-- Top 6 KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Active Risk Zones</span>
+            <i data-lucide="shield-alert" class="w-4 h-4 text-crimson"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-risk-zones" class="text-3xl font-extrabold telemetry-num text-red-400">0</span>
+            <span class="text-[11px] text-slate-400">Dynamic Polygons</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Source: NE-SHIELD GIS
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>High Risk Slopes</span>
+            <i data-lucide="flame" class="w-4 h-4 text-orange-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-high-risk" class="text-3xl font-extrabold telemetry-num text-orange-400">0</span>
+            <span class="text-[11px] text-slate-400">Escarpments</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Source: ML Risk Engine
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Official Warnings</span>
+            <i data-lucide="bell-ring" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-official-warnings" class="text-3xl font-extrabold telemetry-num text-amber-400">0</span>
+            <span class="text-[11px] text-slate-400">Active</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Source: IMD / NDMA
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Rainfall Alerts</span>
+            <i data-lucide="cloud-lightning" class="w-4 h-4 text-cyan-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-rainfall-alerts" class="text-3xl font-extrabold telemetry-num text-cyan-400">0</span>
+            <span class="text-[11px] text-slate-400">Districts</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Threshold: &gt;64.5mm/24h
+          </div>
+        </div>
+
+        <!-- KPI 5 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Field Reports</span>
+            <i data-lucide="clipboard-check" class="w-4 h-4 text-teal-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-field-reports" class="text-3xl font-extrabold telemetry-num text-teal-400">0</span>
+            <span class="text-[11px] text-slate-400">Under Review</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Source: Citizen & Ground Officers
+          </div>
+        </div>
+
+        <!-- KPI 6 -->
+        <div class="glass-panel p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Integrations Online</span>
+            <i data-lucide="server" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="kpi-sources-online" class="text-3xl font-extrabold telemetry-num text-emerald-400">--/--</span>
+            <span class="text-[11px] text-slate-400">Connected</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+            Latency Avg: 62ms
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Operational Split: Map Preview + Critical Slopes + Warnings -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left: Quick Map Viewport (2 cols on large) -->
+        <div class="lg:col-span-2 glass-panel p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
+              <h3 class="font-bold text-sm tracking-wide text-slate-200">REAL-TIME HAZARD RADAR & MONITORING MAP</h3>
+            </div>
+            <button onclick="switchTab('live-map')" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono">
+              Open Full GIS <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          
+          <div id="dashboard-mini-map" class="w-full h-[420px] rounded-lg border border-slate-800 z-10"></div>
+          
+          <div class="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+            <div class="flex items-center gap-4">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Low (&lt;35%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Moderate (35-65%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span> High (65-85%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span> Critical (&gt;85%)</span>
+            </div>
+            <div class="font-mono text-[11px] text-slate-500">PostGIS Geometry WGS84</div>
+          </div>
+        </div>
+
+        <!-- Right: Critical Locations & Warnings Ticker -->
+        <div class="space-y-6">
+          
+          <!-- Top Critical Locations Card -->
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <i data-lucide="alert-octagon" class="w-4 h-4 text-red-500"></i>
+                <h3 class="font-bold text-sm text-slate-200">TOP CRITICAL ESCARPMENTS</h3>
+              </div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 text-red-400 border border-red-800/60">AI EVALUATED</span>
+            </div>
+            
+            <div id="top-critical-list" class="mt-3 space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+              <!-- Populated dynamically -->
+              <div class="text-xs text-slate-500 text-center py-6">Loading critical hazard spots...</div>
+            </div>
+          </div>
+
+          <!-- Official Government Warnings Ticker -->
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <i data-lucide="radio" class="w-4 h-4 text-amber-400"></i>
+                <h3 class="font-bold text-sm text-slate-200">OFFICIAL GOVERNMENT WARNINGS</h3>
+              </div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-800/60">IMD / NDMA</span>
+            </div>
+            
+            <div id="dashboard-warnings-list" class="mt-3 space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
+              <!-- Populated dynamically -->
+              <div class="text-xs text-slate-500 text-center py-4">Checking active government bulletins...</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Tab 2: Full Operational GIS Map -->
+    <div id="view-live-map" class="tab-view hidden space-y-4">
+      <div class="glass-panel p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i>
+            <h2 class="font-bold text-base text-slate-100">NORTH EASTERN REGION GIS COMMAND SYSTEM</h2>
+          </div>
+          
+          <!-- Layer Toggles -->
+          <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+              <input type="checkbox" id="layer-hazard-toggle" checked onchange="toggleMapLayer('hazards', this.checked)">
+              <span>Hazard Pins</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+              <input type="checkbox" id="layer-zones-toggle" checked onchange="toggleMapLayer('zones', this.checked)">
+              <span>Risk Zones</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+              <input type="checkbox" id="layer-roads-toggle" checked onchange="toggleMapLayer('roads', this.checked)">
+              <span>Roads</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+              <input type="checkbox" id="layer-historical-toggle" checked onchange="toggleMapLayer('historical', this.checked)">
+              <span>Historical Landslides</span>
+            </label>
+            <label class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+              <input type="checkbox" id="layer-reports-toggle" checked onchange="toggleMapLayer('reports', this.checked)">
+              <span>Citizen Reports</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="main-gis-map" class="w-full h-[680px] rounded-lg border border-slate-800 z-10"></div>
+      </div>
+    </div>
+
+    <!-- Tab 3: AI Risk Predictions -->
+    <div id="view-risk-analysis" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
+              NE-SHIELD AI LANDSLIDE RISK ENGINE
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Multi-feature machine learning model evaluating rainfall intensity-duration thresholds, slope, pore water pressure, and geology.</p>
+          </div>
+          <div class="flex items-center gap-3 font-mono text-xs">
+            <span class="px-3 py-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Model: GradientBoosted Trees</span>
+            <span class="px-3 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800" id="risk-model-acc-badge">Validation ROC-AUC: 1.0000</span>
+          </div>
+        </div>
+
+        <!-- Risk Predictions Table -->
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/90 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Location</th>
+                <th class="py-3 px-4">District / State</th>
+                <th class="py-3 px-4">Elevation & Slope</th>
+                <th class="py-3 px-4">Geology</th>
+                <th class="py-3 px-4">Failure Probability</th>
+                <th class="py-3 px-4">Risk Class</th>
+                <th class="py-3 px-4">Trigger Thresholds</th>
+                <th class="py-3 px-4">Last Evaluation</th>
+              </tr>
+            </thead>
+            <tbody id="risk-table-body" class="divide-y divide-slate-800/60 font-sans">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: IMD Weather Observations -->
+    <div id="view-weather" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="cloud-sun" class="w-5 h-5 text-cyan-400"></i>
+              IMD STATION OBSERVATIONS & NOWCASTS
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Official meteorological data from India Meteorological Department (api.imd.gov.in). Every card displays verified provenance.</p>
+          </div>
+          <div class="font-mono text-xs px-3 py-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+            Source: India Meteorological Department
+          </div>
+        </div>
+
+        <div id="weather-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Rainfall Analytics -->
+    <div id="view-rainfall" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="cloud-rain" class="w-5 h-5 text-blue-400"></i>
+              PRECIPITATION & RAINFALL ACCUMULATION ANALYTICS
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Multi-interval accumulation: 1h (cloudburst alert), 3h, 6h, 24h, and 72h continuous antecedent precipitation.</p>
+          </div>
+          <div class="font-mono text-xs px-3 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800">
+            Source: IMD AWS/ARG Network
+          </div>
+        </div>
+
+        <!-- Rainfall Multi-interval Grid -->
+        <div class="overflow-x-auto rounded-lg border border-slate-800 mb-6">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/90 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Station / Location</th>
+                <th class="py-3 px-4">District</th>
+                <th class="py-3 px-4">1-Hour Rain</th>
+                <th class="py-3 px-4">3-Hour Rain</th>
+                <th class="py-3 px-4">6-Hour Rain</th>
+                <th class="py-3 px-4">24-Hour Rain</th>
+                <th class="py-3 px-4">72-Hour Rain</th>
+                <th class="py-3 px-4">Cumulative Event</th>
+                <th class="py-3 px-4">Alert Status</th>
+              </tr>
+            </thead>
+            <tbody id="rainfall-table-body" class="divide-y divide-slate-800/60 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="glass-panel p-4">
+          <h3 class="font-bold text-sm text-slate-200 mb-2 font-mono flex items-center gap-2">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i> 24-HOUR RAINFALL INTENSITY DISTRIBUTION (MM)
+          </h3>
+          <div class="w-full h-[280px]">
+            <canvas id="rainfall-chart"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tab 6: Official Government Warnings -->
+    <div id="view-alerts" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400"></i>
+              OFFICIAL GOVERNMENT DISASTER WARNINGS
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Authoritative alerts issued by Government of India agencies (IMD, NDMA, SACHET). Strictly separated from AI model predictions.</p>
+          </div>
+          <span class="text-xs font-mono px-3 py-1 rounded bg-amber-950 text-amber-300 border border-amber-800">AUTHORITATIVE FEED</span>
+        </div>
+
+        <div id="official-warnings-grid" class="space-y-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 7: Citizen Reporting -->
+    <div id="view-reports" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Submission Form (1 col) -->
+        <div class="glass-panel p-5">
+          <h2 class="text-base font-bold text-slate-100 mb-2 flex items-center gap-2">
+            <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+            SUBMIT GROUND INCIDENT REPORT
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Citizens and volunteers can submit geo-tagged hazard observations.</p>
+
+          <form id="citizen-report-form" onsubmit="submitReportForm(event)" class="space-y-3.5 text-xs">
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Your Full Name *</label>
+              <input type="text" id="cr-name" required placeholder="e.g. Romen Singha" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400">
+            </div>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Phone Number *</label>
+              <input type="tel" id="cr-phone" required placeholder="e.g. +91 98640 55667" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400 font-mono">
+            </div>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Incident Type *</label>
+              <select id="cr-type" required class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400">
+                <option value="Landslide">Landslide (Active Slope Movement)</option>
+                <option value="Road Blockage">Highway / Road Blockage</option>
+                <option value="Crack">Ground Tension Crack (Early Warning)</option>
+                <option value="Rockfall">Rockfall / Boulder Roll</option>
+                <option value="Flooding">Flash Flood / Slope Runoff</option>
+                <option value="Infrastructure Damage">Bridge / Retaining Wall Damage</option>
+                <option value="Other">Other Emergency</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-300 mb-1 font-medium">Latitude *</label>
+                <input type="number" step="0.0001" id="cr-lat" required placeholder="25.2890" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 font-mono">
+              </div>
+              <div>
+                <label class="block text-slate-300 mb-1 font-medium">Longitude *</label>
+                <input type="number" step="0.0001" id="cr-lon" required placeholder="91.7240" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 font-mono">
+              </div>
+            </div>
+
+            <button type="button" onclick="autofillCurrentGPS()" class="w-full py-1.5 px-3 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 text-[11px] flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Auto-detect GPS Coordinates
+            </button>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Landmark / Highway KM</label>
+              <input type="text" id="cr-landmark" placeholder="e.g. Near Haflong bypass KM 118" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400">
+            </div>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Description *</label>
+              <textarea id="cr-desc" required rows="3" placeholder="Describe soil movement, road status, any trapped vehicles or immediate danger..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">Photo / Media Proof</label>
+              <input type="file" id="cr-photo" accept="image/*,video/*" class="w-full text-slate-400 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-cyan-950 file:text-cyan-300 hover:file:bg-cyan-900 cursor-pointer">
+            </div>
+
+            <button type="submit" id="cr-submit-btn" class="w-full py-2 px-4 rounded bg-cyan-600 hover:bg-cyan-500 text-black font-bold tracking-wide transition shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i> Submit Geo-Report
+            </button>
+          </form>
+        </div>
+
+        <!-- Submitted Reports Feed (2 cols) -->
+        <div class="lg:col-span-2 glass-panel p-5">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+              <i data-lucide="list-checks" class="w-4 h-4 text-cyan-400"></i>
+              SUBMITTED INCIDENTS & VERIFICATION STATUS
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">Traceable Report Registry</span>
+          </div>
+
+          <div id="citizen-reports-feed" class="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tab 8: Field Officer Operational Mode -->
+    <div id="view-field" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="shield" class="w-5 h-5 text-teal-400"></i>
+              FIELD OFFICER OPERATIONAL INTERFACE
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Ground inspection logging with IndexedDB offline queue and automatic synchronization.</p>
+          </div>
+          <div class="flex items-center gap-3 font-mono text-xs">
+            <span id="field-offline-status" class="px-3 py-1 rounded bg-teal-950 text-teal-300 border border-teal-800">ONLINE MODE</span>
+            <button onclick="syncOfflineQueueManual()" class="px-3 py-1 rounded bg-cyan-700 hover:bg-cyan-600 text-black font-bold transition flex items-center gap-1.5">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync Pending (<span id="offline-queue-count">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Pending Inspections -->
+          <div class="glass-panel p-4">
+            <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center gap-2">
+              <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400"></i>
+              PENDING INCIDENTS REQUIRING GROUND CHECK
+            </h3>
+            <div id="field-pending-list" class="space-y-3 max-h-[460px] overflow-y-auto pr-1 text-xs">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Verified Incident Logs -->
+          <div class="glass-panel p-4">
+            <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+              OFFICER VERIFIED FIELD LOGS
+            </h3>
+            <div id="field-verified-list" class="space-y-3 max-h-[460px] overflow-y-auto pr-1 text-xs">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tab 9: Road Connectivity Network -->
+    <div id="view-roads" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="git-commit" class="w-5 h-5 text-cyan-400"></i>
+              HIGHWAY & MOUNTAIN ROAD CONNECTIVITY
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Real-time status of critical transit arteries across Northeast India with explicit Field Verified vs Government Source labels.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-400">NHAI / BRO / PWD Network</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/90 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Highway / Sector</th>
+                <th class="py-3 px-4">State & District</th>
+                <th class="py-3 px-4">Current Status</th>
+                <th class="py-3 px-4">Blockage Cause / Detour</th>
+                <th class="py-3 px-4">Source Attribution</th>
+                <th class="py-3 px-4">Last Updated</th>
+                <th class="py-3 px-4">Action</th>
+              </tr>
+            </thead>
+            <tbody id="roads-table-body" class="divide-y divide-slate-800/60 font-sans">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 10: ML Governance & Training -->
+    <div id="view-ml-model" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="brain-circuit" class="w-5 h-5 text-indigo-400"></i>
+              ML MODEL GOVERNANCE & RETRAINING DASHBOARD
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Inspection of geotechnical features, confusion matrix, and training on historical catalogs. Strictly no fake accuracy.</p>
+          </div>
+          <button onclick="triggerModelRetrain()" id="train-model-btn" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2 transition shadow-lg shadow-indigo-600/30">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Retrain Active Model
+          </button>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div class="glass-panel p-4">
+            <span class="text-xs text-slate-400">Accuracy</span>
+            <div id="ml-stat-accuracy" class="text-2xl font-bold font-mono text-emerald-400 mt-1">--</div>
+            <span class="text-[10px] text-slate-500">Held-out test set</span>
+          </div>
+          <div class="glass-panel p-4">
+            <span class="text-xs text-slate-400">ROC-AUC</span>
+            <div id="ml-stat-roc-auc" class="text-2xl font-bold font-mono text-cyan-400 mt-1">--</div>
+            <span class="text-[10px] text-slate-500">Discrimination index</span>
+          </div>
+          <div class="glass-panel p-4">
+            <span class="text-xs text-slate-400">Precision</span>
+            <div id="ml-stat-precision" class="text-2xl font-bold font-mono text-indigo-400 mt-1">--</div>
+            <span class="text-[10px] text-slate-500">True trigger ratio</span>
+          </div>
+          <div class="glass-panel p-4">
+            <span class="text-xs text-slate-400">Recall</span>
+            <div id="ml-stat-recall" class="text-2xl font-bold font-mono text-purple-400 mt-1">--</div>
+            <span class="text-[10px] text-slate-500">Sensitivity</span>
+          </div>
+          <div class="glass-panel p-4">
+            <span class="text-xs text-slate-400">Dataset Size</span>
+            <div id="ml-stat-dataset-size" class="text-2xl font-bold font-mono text-slate-200 mt-1">--</div>
+            <span class="text-[10px] text-slate-500">Validated records</span>
+          </div>
+        </div>
+
+        <!-- Confusion Matrix & Feature Importances -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass-panel p-4">
+            <h3 class="font-bold text-sm text-slate-200 mb-3 font-mono">CONFUSION MATRIX (VALIDATION)</h3>
+            <div id="confusion-matrix-display" class="font-mono text-xs text-slate-300">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+          <div class="glass-panel p-4">
+            <h3 class="font-bold text-sm text-slate-200 mb-3 font-mono">TOP GEOTECHNICAL FEATURE IMPORTANCE</h3>
+            <div id="feature-importances-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1 text-xs font-mono">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= LIVE SATELLITE & AI PREDICTION PIPELINE ================= -->
+        <div class="glass-panel p-5 border border-cyan-800/60 bg-gradient-to-br from-slate-900/90 to-cyan-950/20 shadow-xl rounded-xl">
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-cyan-900/40">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="p-1.5 rounded-lg bg-cyan-950 border border-cyan-700/60 text-cyan-400">
+                  <i data-lucide="satellite" class="w-5 h-5"></i>
+                </span>
+                <h3 class="text-base font-bold text-cyan-200 font-mono tracking-wide">
+                  LIVE SATELLITE & AI REAL-TIME HAZARD PREDICTION PIPELINE
+                </h3>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/60 font-mono font-bold">
+                  ISRO BHUVAN + MULTI-SATELLITE ASSIMILATION
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Train model using GSI/IMD Government data, fetch real-time Earth observation satellite telemetry (precipitation, volumetric soil moisture, cloud cover), and execute AI landslide & flood risk predictions.
+              </p>
+            </div>
+
+            <!-- Pipeline Action Toolbar -->
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button onclick="triggerModelRetrain()" id="btn-pipeline-train" class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-mono text-xs flex items-center gap-1.5 transition shadow">
+                <i data-lucide="database" class="w-3.5 h-3.5 text-indigo-300"></i> 1. Train on Gov Data
+              </button>
+              <button onclick="syncSatelliteData()" id="btn-pipeline-satellite" class="px-3 py-1.5 rounded bg-cyan-700 hover:bg-cyan-600 text-white font-mono text-xs flex items-center gap-1.5 transition shadow">
+                <i data-lucide="satellite" class="w-3.5 h-3.5 text-cyan-200"></i> 2. Fetch Live Satellite Data
+              </button>
+              <button onclick="predictOnSatelliteData()" id="btn-pipeline-predict" class="px-3 py-1.5 rounded bg-purple-700 hover:bg-purple-600 text-white font-mono text-xs flex items-center gap-1.5 transition shadow">
+                <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-200"></i> 3. Predict on Satellite Data
+              </button>
+              <button onclick="executeFullPipeline()" id="btn-pipeline-full" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold font-mono text-xs flex items-center gap-2 transition shadow-lg shadow-cyan-500/30">
+                <i data-lucide="zap" class="w-4 h-4 text-black"></i> Execute Full Live Pipeline
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Telemetry Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+              <span class="text-slate-400 text-[10px] block">ISRO BHUVAN SERVICE</span>
+              <span id="pipeline-bhuvan-status" class="font-mono font-bold text-emerald-400 text-sm flex items-center gap-1 mt-0.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE
+              </span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+              <span class="text-slate-400 text-[10px] block">LIVE SATELLITE MONITORED SPOTS</span>
+              <span id="pipeline-locations-count" class="font-mono font-bold text-cyan-300 text-sm mt-0.5">11 Locations</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+              <span class="text-slate-400 text-[10px] block">SATELLITE TELEMETRY LATENCY</span>
+              <span id="pipeline-satellite-latency" class="font-mono font-bold text-indigo-300 text-sm mt-0.5">-- ms</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+              <span class="text-slate-400 text-[10px] block">CRITICAL SATELLITE HAZARDS</span>
+              <span id="pipeline-critical-count" class="font-mono font-bold text-red-400 text-sm mt-0.5">--</span>
+            </div>
+          </div>
+
+          <!-- Live Pipeline Execution Console -->
+          <div class="mb-4">
+            <div class="flex items-center justify-between pb-1.5 text-xs text-slate-400 font-mono">
+              <span class="flex items-center gap-1.5"><i data-lucide="terminal" class="w-3.5 h-3.5 text-cyan-400"></i> PIPELINE EXECUTION TERMINAL</span>
+              <span id="pipeline-last-sync-time" class="text-[10px] text-slate-500">Ready</span>
+            </div>
+            <div id="pipeline-terminal-log" class="p-3 rounded-lg bg-black/80 border border-slate-800 font-mono text-xs text-slate-300 h-28 overflow-y-auto space-y-1">
+              <div class="text-cyan-400">[NE-SHIELD Pipeline Engine] Standby. Click "Execute Full Live Pipeline" to train with Government Data and predict on real-time Satellite feeds.</div>
+            </div>
+          </div>
+
+          <!-- Live Satellite Ingestion & Prediction Results Table -->
+          <div>
+            <h4 class="font-mono text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+              <span>REAL-TIME SATELLITE TELEMETRY & AI RISK PREDICTION RESULTS</span>
+              <span class="text-[10px] text-slate-500 font-normal">Auto-refreshed upon pipeline execution</span>
+            </h4>
+            <div class="overflow-x-auto rounded-lg border border-slate-800">
+              <table class="w-full text-left font-mono text-xs">
+                <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <tr>
+                    <th class="p-2.5">Monitored Hazard Spot</th>
+                    <th class="p-2.5">State</th>
+                    <th class="p-2.5">Lat, Lon</th>
+                    <th class="p-2.5">Sat 24h Rain</th>
+                    <th class="p-2.5">Soil Moisture</th>
+                    <th class="p-2.5">Cloud %</th>
+                    <th class="p-2.5">Risk Level</th>
+                    <th class="p-2.5">Failure Probability</th>
+                    <th class="p-2.5">Triggered Thresholds</th>
+                  </tr>
+                </thead>
+                <tbody id="satellite-predictions-tbody" class="divide-y divide-slate-800/60 bg-slate-950/40">
+                  <tr>
+                    <td colspan="9" class="p-4 text-center text-slate-500">
+                      Loading live satellite telemetry... Click "Execute Full Live Pipeline" above to run live inference.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tab 11: Data Provenance & Source Health -->
+    <div id="view-data-sources" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i data-lucide="database" class="w-5 h-5 text-cyan-400"></i>
+              OFFICIAL DATA INTEGRATION & PROVENANCE REGISTRY
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Real-time health telemetry, latency measurements, and provenance stamps for all connected endpoints.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-400">Strict Provenance Protocol</span>
+        </div>
+
+        <div id="data-sources-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 12: Audit Logs -->
+    <div id="view-audit-logs" class="tab-view hidden space-y-6">
+      <div class="glass-panel p-5">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <i data-lucide="file-text" class="w-5 h-5 text-slate-400"></i>
+            IMMUTABLE AUDIT TRAIL
+          </h2>
+          <span class="text-xs font-mono text-slate-400">Administrative Operation Log</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/90 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Timestamp (IST)</th>
+                <th class="py-3 px-4">Action</th>
+                <th class="py-3 px-4">User</th>
+                <th class="py-3 px-4">Resource</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Details</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body" class="divide-y divide-slate-800/60 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Application JS -->
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{
+  "version_tag": "NE-SHIELD-v20261008-091722",
+  "model_name": "NE-SHIELD Landslide Susceptibility & Risk Classifier",
+  "algorithm": "GradientBoostingClassifier",
+  "dataset_size": 2500,
+  "train_samples": 2000,
+  "test_samples": 500,
+  "features": [
+    "rainfall_1h_mm",
+    "rainfall_3h_mm",
+    "rainfall_6h_mm",
+    "rainfall_24h_mm",
+    "rainfall_72h_mm",
+    "cumulative_event_mm",
+    "antecedent_rainfall_7d_mm",
+    "soil_moisture_pct",
+    "pore_pressure_kpa",
+    "slope_deg",
+    "elevation_m",
+    "aspect_sin",
+    "aspect_cos",
+    "curvature",
+    "distance_to_fault_m",
+    "distance_to_stream_m",
+    "drainage_density",
+    "historical_landslide_density_5km",
+    "weather_warning_severity_code",
+    "lithology_code"
+  ],
+  "hyperparameters": {
+    "n_estimators": 80,
+    "max_depth": 4,
+    "learning_rate": 0.1
+  },
+  "metrics": {
+    "accuracy": 0.866,
+    "precision": 0.75,
+    "recall": 0.5946,
+    "f1_score": 0.6633,
+    "roc_auc": 0.8903,
+    "confusion_matrix": [
+      [
+        367,
+        22
+      ],
+      [
+        45,
+        66
+      ]
+    ],
+    "feature_importances": {
+      "rainfall_1h_mm": 0.0192,
+      "rainfall_3h_mm": 0.0271,
+      "rainfall_6h_mm": 0.0133,
+      "rainfall_24h_mm": 0.0259,
+      "rainfall_72h_mm": 0.0547,
+      "cumulative_event_mm": 0.0216,
+      "antecedent_rainfall_7d_mm": 0.02,
+      "soil_moisture_pct": 0.2323,
+      "pore_pressure_kpa": 0.2737,
+      "slope_deg": 0.1515,
+      "elevation_m": 0.0282,
+      "aspect_sin": 0.0058,
+      "aspect_cos": 0.0156,
+      "curvature": 0.0203,
+      "distance_to_fault_m": 0.0361,
+      "distance_to_stream_m": 0.0161,
+      "drainage_density": 0.0137,
+      "historical_landslide_density_5km": 0.0051,
+      "weather_warning_severity_code": 0.0046,
+      "lithology_code": 0.015
+    }
+  },
+  "trained_at": "2026-10-08T09:17:22.739424Z",
+  "trained_by": "pipeline@ne-shield.gov.in",
+  "status": "PRODUCTION_ACTIVE"
+}
