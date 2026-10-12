@@ -45,7 +45,7 @@ class NumberedCanvas(canvas.Canvas):
         self.line(54, 45, 8.5 * inch - 54, 45)
         
         page_str = f"Page {self._pageNumber} of {page_count}"
-        self.drawString(54, 32, "Confidential - Theem Warrior AI Disaster Management Core")
+        self.drawString(54, 32, "Confidential - NE-SHIELD AI Disaster Intelligence Core")
         self.drawRightString(8.5 * inch - 54, 32, page_str)
         self.restoreState()
 
@@ -172,7 +172,7 @@ def create_pdf(filename):
             Paragraph("<b>Geospatial Engine:</b> ISRO Bhuvan WMS & Leaflet GIS Engine", table_cell_style)
         ],
         [
-            Paragraph("<b>Organization:</b> Theem Warriors Disaster Intelligence", table_cell_style),
+            Paragraph("<b>Organization:</b> NE-SHIELD AI Disaster Intelligence Core", table_cell_style),
             Paragraph("<b>Deployment Target:</b> Render Cloud Production Container", table_cell_style)
         ]
     ]
@@ -329,7 +329,7 @@ def create_pdf(filename):
         "• <b>FastAPI High-Performance Async Backend:</b> Serves sub-10ms RESTful endpoints for real-time risk predictions, station telemetries, and alert broadcasts.<br/>"
         "• <b>Render Cloud Blueprint (<code>render.yaml</code>):</b> Fully automated cloud specification with automatic Python 3.11 dependency compilation, health checks, and global HTTPS certificate provisioning.<br/>"
         "• <b>Static GIS Dashboard Integration:</b> The interactive command center is embedded directly inside FastAPI's static file engine, allowing both the GIS interface and the AI API to run in a single lightweight microservice on Render's 100% free tier.<br/>"
-        "• <b>GitHub CI/CD Integration:</b> Managed under <code>arifshekh291172-web/Theem-Warrior-AI-Flood-Early-Warning</code> with automated branch tracking and continuous deployment.",
+        "• <b>GitHub CI/CD Integration:</b> Managed under <code>arifshekh291172-web/AI-Flood-Early-Warning</code> with automated branch tracking and continuous deployment.",
         body_style
     ))
 

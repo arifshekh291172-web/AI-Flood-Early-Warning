@@ -1,7 +1,7 @@
 services:
   # NE-SHIELD Backend & Operational GIS Command Center
   - type: web
-    name: ne-shield-backend
+    name: ai-flood-warning
     runtime: python
     buildCommand: "pip install --no-cache-dir -r backend/requirements.txt"
     startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"

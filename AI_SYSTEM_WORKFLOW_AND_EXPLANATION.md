@@ -216,7 +216,7 @@ Double-click [`start.bat`](file:///c:/Users/baigm/Documents/SIH%20AI%20FLOOD%20W
 * Automatically opens the GIS Command Center (`http://localhost:8000/`) in the default web browser.
 
 ### Free Cloud Deployment on Render.com
-* Repository: `arifshekh291172-web/Theem-Warrior-AI-Flood-Early-Warning`
+* Repository: `arifshekh291172-web/AI-Flood-Early-Warning`
 * Configuration: [`render.yaml`](file:///c:/Users/baigm/Documents/SIH%20AI%20FLOOD%20WARNING/render.yaml)
 * Environment: Python 3.11
 * Build Command: `pip install -r backend/requirements.txt`
